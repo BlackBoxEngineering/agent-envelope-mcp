@@ -1,0 +1,50 @@
+{
+  "name": "agent-envelope-mcp",
+  "version": "1.0.2",
+  "mcpName": "io.github.BlackBoxEngineering/agent-envelope-mcp",
+  "description": "Neutral MCP server for AgentEnvelope — expose agent authority (sovereign verify + vault-governed verify, lookup, and mint) to any MCP client.",
+  "type": "module",
+  "bin": {
+    "agent-envelope-mcp": "bin/agent-envelope-mcp.js"
+  },
+  "exports": {
+    ".": "./src/server.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "start": "node bin/agent-envelope-mcp.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "agent-envelope-sdk": "^1.1.0",
+    "zod": "^4.4.3"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "agent-envelope",
+    "agent",
+    "authority",
+    "verification",
+    "identity"
+  ],
+  "author": "BlackBox Engineering",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BlackBoxEngineering/agent-envelope-mcp.git"
+  },
+  "homepage": "https://github.com/BlackBoxEngineering/agent-envelope-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/BlackBoxEngineering/agent-envelope-mcp/issues"
+  }
+}

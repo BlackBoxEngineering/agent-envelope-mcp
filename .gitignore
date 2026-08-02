@@ -1,0 +1,9 @@
+node_modules/
+package-lock.json
+*.log
+.env
+.env.local
+.DS_Store
+mcp-publisher.exe
+mcp-publisher
+*.tar.gz
