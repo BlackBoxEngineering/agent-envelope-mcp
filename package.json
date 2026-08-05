@@ -1,6 +1,6 @@
 {
   "name": "agent-envelope-mcp",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "mcpName": "io.github.BlackBoxEngineering/agent-envelope-mcp",
   "description": "Neutral MCP server for AgentEnvelope — expose agent authority (sovereign verify + vault-governed verify, lookup, and mint) to any MCP client.",
   "type": "module",
@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "agent-envelope-sdk": "^1.1.0",
+    "agent-envelope-sdk": "^1.3.1",
     "zod": "^4.4.3"
   },
   "keywords": [
