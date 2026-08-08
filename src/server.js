@@ -1,23 +1,24 @@
 /**
- * AgentEnvelope MCP server — the neutral authority layer for agent runtimes.
+ * AgentEnvelope MCP server — the neutral authority layer for action-performing systems.
  *
  * Any MCP client (Claude, an OpenAI agent, LangChain, CrewAI, a custom runtime)
- * can call these tools to check and issue authority without building its own
- * policy engine, audit log, or verification stack. AgentEnvelope is owned by no
- * framework, so every framework can embed it.
+ * can call these tools to check and issue delegated action authority without
+ * building its own policy engine, audit log, or verification stack.
+ * AgentEnvelope is owned by no framework, so every framework can embed it.
  *
  * Two tiers of tools, matching the two modes:
  *
  *   Sovereign (free, offline, no credential):
  *     - ae_verify_sovereign   verify a signature against a known agent address
  *
- *   Custody (vault-governed, requires AE_API_KEY):
+ *   Hosted governance (requires AE_API_KEY):
  *     - ae_get_agent          look up a registered agent's public record
- *     - ae_verify_action      verify a signed action against the vault record
- *     - ae_mint               mint a capability through the vault (governance event)
+ *     - ae_verify_action      verify a signed action against the hosted record
+ *     - ae_mint               verify a mint request through hosted governance
  *
- * Verification in sovereign mode is always free. The vault-gated tools are the
- * governed surface: they are what a framework offloads rather than rebuilds.
+ * Verification in sovereign mode is always free. The hosted-governance tools
+ * are what a framework offloads rather than rebuilds. API keys meter hosted
+ * service routes; signatures prove authority.
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -33,7 +34,7 @@ function getApiKey() {
 }
 
 let cachedClient = null;
-function vaultClient() {
+function governanceClient() {
   const apiKey = getApiKey();
   if (!apiKey) return null;
   if (!cachedClient) cachedClient = new AgentEnvelopeClient({ apiKey });
@@ -43,14 +44,14 @@ function vaultClient() {
 const ok = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] });
 const fail = (message) => ({ content: [{ type: 'text', text: message }], isError: true });
 const NEEDS_KEY =
-  'AE_API_KEY is not set. This is a vault-governed tool; set the vault-issued API key to use it. (Sovereign verification needs no key — use ae_verify_sovereign.)';
+  'AE_API_KEY is not set. This is a hosted-governance tool; set the portal-issued API key to use it. (Sovereign verification needs no key — use ae_verify_sovereign.)';
 
 /**
  * Build a fully configured AgentEnvelope MCP server (not yet connected to a
  * transport). Exported so hosts can mount it on their own transport.
  */
 export function createServer() {
-  const server = new McpServer({ name: 'agent-envelope', version: '1.0.0' });
+  const server = new McpServer({ name: 'agent-envelope', version: '1.0.4' });
 
   // Sovereign — free, offline, no credential.
   server.registerTool(
@@ -74,18 +75,18 @@ export function createServer() {
     },
   );
 
-  // Custody — vault-governed, requires AE_API_KEY.
+  // Hosted governance — requires AE_API_KEY.
   server.registerTool(
     'ae_get_agent',
     {
       title: 'Look up registered agent',
-      description: 'Fetch the vault-registered public record for an agent id. Requires a vault-issued API key.',
+      description: 'Fetch the hosted public record for an agent id. Requires a portal-issued API key.',
       inputSchema: {
         agentId: z.string().describe('The registered agent id'),
       },
     },
     async ({ agentId }) => {
-      const client = vaultClient();
+      const client = governanceClient();
       if (!client) return fail(NEEDS_KEY);
       try {
         return ok(await client.getAgent(agentId));
@@ -98,8 +99,8 @@ export function createServer() {
   server.registerTool(
     'ae_verify_action',
     {
-      title: 'Verify action (vault-anchored)',
-      description: 'Verify a signed action against the vault-held record for an agent. Requires a vault-issued API key.',
+      title: 'Verify action (hosted record)',
+      description: 'Verify a signed action against the hosted public record for an agent. Requires a portal-issued API key.',
       inputSchema: {
         agentId: z.string().describe('The registered agent id'),
         actionIndex: z.number().int().nonnegative().describe('The action index'),
@@ -109,7 +110,7 @@ export function createServer() {
       },
     },
     async ({ agentId, actionIndex, payload, signature, expectedActionEnvelopeHash }) => {
-      const client = vaultClient();
+      const client = governanceClient();
       if (!client) return fail(NEEDS_KEY);
       try {
         return ok(await client.verifyAction({ agentId, actionIndex, payload, signature, expectedActionEnvelopeHash }));
@@ -124,14 +125,14 @@ export function createServer() {
     {
       title: 'Mint capability (governance event)',
       description:
-        'Mint a capability through the vault from a MintDelegate and a signed MintRequest. Returns a mint receipt. Requires a vault-issued API key. This is a governed action.',
+        'Verify a MintDelegate and signed MintRequest through hosted governance. Returns a mint receipt. Requires a portal-issued API key. This is a governed action.',
       inputSchema: {
-        delegate: z.record(z.string(), z.unknown()).describe('The vault-issued MintDelegate'),
+        delegate: z.record(z.string(), z.unknown()).describe('The signed MintDelegate'),
         request: z.record(z.string(), z.unknown()).describe('The bot-signed MintRequest'),
       },
     },
     async ({ delegate, request }) => {
-      const client = vaultClient();
+      const client = governanceClient();
       if (!client) return fail(NEEDS_KEY);
       try {
         return ok(await client.mint({ delegate, request }));
