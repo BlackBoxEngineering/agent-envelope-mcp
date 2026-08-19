@@ -6,12 +6,12 @@
     "url": "https://github.com/BlackBoxEngineering/agent-envelope-mcp",
     "source": "github"
   },
-  "version": "1.0.6",
+  "version": "1.0.5",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "agent-envelope-mcp",
-      "version": "1.0.6",
+      "version": "1.0.5",
       "transport": {
         "type": "stdio"
       },

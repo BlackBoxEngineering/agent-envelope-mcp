@@ -1,6 +1,6 @@
 {
   "name": "agent-envelope-mcp",
-  "version": "1.0.6",
+  "version": "1.0.5",
   "mcpName": "io.github.BlackBoxEngineering/agent-envelope-mcp",
   "description": "Neutral MCP server for AgentEnvelope delegated action authority: sovereign signature/record verification plus hosted-governance verify, lookup, and mint receipts.",
   "type": "module",

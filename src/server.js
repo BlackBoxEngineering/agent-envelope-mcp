@@ -111,7 +111,7 @@ const publicActionRecordSchema = z.object({
  * transport). Exported so hosts can mount it on their own transport.
  */
 export function createServer() {
-  const server = new McpServer({ name: 'agent-envelope', version: '1.0.6' });
+  const server = new McpServer({ name: 'agent-envelope', version: '1.0.5' });
 
   // Sovereign — free, offline, no credential.
   server.registerTool(
