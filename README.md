@@ -3,8 +3,8 @@
 The neutral authority layer for action-performing systems, as an [MCP](https://modelcontextprotocol.io) server.
 
 Any MCP client — Claude, an OpenAI agent, LangChain, CrewAI, a custom runtime —
-can call these tools to **check and issue delegated action authority** without
-building its own policy engine, audit log, or verification stack. AgentEnvelope
+can call these tools to **check delegated action authority** without
+building its own verification stack. AgentEnvelope
 is owned by no framework, so every framework can embed it.
 
 An AgentEnvelope "agent" is a bounded action identity: a named actor, operation,
@@ -18,8 +18,8 @@ instruction.
 npx agent-envelope-mcp
 ```
 
-It speaks MCP over stdio. No API key is needed to start, or to use the sovereign
-verifier — only the hosted-governance tools require `AE_API_KEY`.
+It speaks MCP over stdio. No API key is needed to start, or to use sovereign
+signature/record verification — only the hosted-governance tools require `AE_API_KEY`.
 
 ## Wire it into an MCP client
 
@@ -42,17 +42,24 @@ environment (only needed for hosted-governance tools):
 
 | Tool | Mode | Credential |
 |---|---|---|
-| `ae_verify_sovereign` | Sovereign | none — offline, always free |
+| `ae_verify_sovereign` | Sovereign signature check | none — offline, always free |
+| `ae_verify_sovereign_record` | Sovereign public-record check | none — offline, always free |
 | `ae_get_agent` | Hosted governance | `AE_API_KEY` |
 | `ae_verify_action` | Hosted governance | `AE_API_KEY` |
 | `ae_mint` | Hosted governance | `AE_API_KEY` |
 
 - **`ae_verify_sovereign`** — verify a signed message against a known agent
-  address. Pure crypto: no vault, no key, no network. Verification is always free.
+  address. Pure crypto: no vault, no key, no network. This is a signature-only
+  check; it does not check action-envelope scope, expiry, usage limits, or hosted
+  record status.
+- **`ae_verify_sovereign_record`** — verify a signed action against a public
+  action record. Checks record status, action index, signature/address match,
+  optional expected envelope hash, and time decay without a network call.
 - **`ae_get_agent`** — fetch the hosted public record for an agent id.
 - **`ae_verify_action`** — verify a signed action against the hosted public record.
 - **`ae_mint`** — verify a `MintDelegate` and signed `MintRequest` through hosted
-  governance, returning a mint receipt. This is a governed action.
+  governance, returning a mint receipt. It does not return private capability
+  material. This is a governed action.
 
 The sovereign verifier needs no account and no key. The hosted-governance tools
 are the governed surface a framework offloads rather than rebuilds. API keys

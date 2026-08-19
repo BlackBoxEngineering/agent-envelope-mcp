@@ -1,24 +1,24 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.BlackBoxEngineering/agent-envelope-mcp",
-  "description": "Neutral MCP server for AgentEnvelope delegated action authority: sovereign verify + hosted-governance verify, lookup, and mint.",
+  "description": "Neutral MCP server for AgentEnvelope delegated action authority: sovereign signature/record verification plus hosted-governance verify, lookup, and mint receipts.",
   "repository": {
     "url": "https://github.com/BlackBoxEngineering/agent-envelope-mcp",
     "source": "github"
   },
-  "version": "1.0.4",
+  "version": "1.0.6",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "agent-envelope-mcp",
-      "version": "1.0.4",
+      "version": "1.0.6",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
           "name": "AE_API_KEY",
-          "description": "Portal-issued API key. Required only for hosted-governance tools (ae_get_agent, ae_verify_action, ae_mint). Sovereign verification needs no key.",
+          "description": "Portal-issued API key. Required only for hosted-governance tools (ae_get_agent, ae_verify_action, ae_mint). Sovereign signature and record verification need no key.",
           "isRequired": false,
           "isSecret": true,
           "format": "string"

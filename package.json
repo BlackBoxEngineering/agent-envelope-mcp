@@ -1,8 +1,8 @@
 {
   "name": "agent-envelope-mcp",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "mcpName": "io.github.BlackBoxEngineering/agent-envelope-mcp",
-  "description": "Neutral MCP server for AgentEnvelope delegated action authority: sovereign verify plus hosted-governance verify, lookup, and mint.",
+  "description": "Neutral MCP server for AgentEnvelope delegated action authority: sovereign signature/record verification plus hosted-governance verify, lookup, and mint receipts.",
   "type": "module",
   "bin": {
     "agent-envelope-mcp": "bin/agent-envelope-mcp.js"
@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "agent-envelope-sdk": "^1.3.2",
+    "agent-envelope-sdk": "^1.3.3",
     "zod": "^4.4.3"
   },
   "keywords": [
