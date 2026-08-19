@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "agent-envelope-sdk": "^1.3.3",
+    "agent-envelope-sdk": "latest",
     "zod": "^4.4.3"
   },
   "keywords": [
