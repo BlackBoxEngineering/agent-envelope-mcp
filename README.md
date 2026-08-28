@@ -1,5 +1,7 @@
 # agent-envelope-mcp
 
+[![agent-envelope-mcp MCP server](https://glama.ai/mcp/servers/BlackBoxEngineering/agent-envelope-mcp/badges/score.svg)](https://glama.ai/mcp/servers/BlackBoxEngineering/agent-envelope-mcp)
+
 The neutral authority layer for action-performing systems, as an [MCP](https://modelcontextprotocol.io) server.
 
 Any MCP client — Claude, an OpenAI agent, LangChain, CrewAI, a custom runtime —
