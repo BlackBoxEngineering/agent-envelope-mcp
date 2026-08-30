@@ -7,3 +7,4 @@ package-lock.json
 mcp-publisher.exe
 mcp-publisher
 *.tar.gz
+mcp-digest/
