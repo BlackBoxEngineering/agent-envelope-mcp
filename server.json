@@ -6,12 +6,12 @@
     "url": "https://github.com/BlackBoxEngineering/agent-envelope-mcp",
     "source": "github"
   },
-  "version": "1.1.0",
+  "version": "1.1.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "agent-envelope-mcp",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "transport": {
         "type": "stdio"
       },
@@ -21,6 +21,13 @@
           "description": "Portal-issued API key. Required only for hosted-governance tools (ae_get_agent, ae_verify_action, ae_authorize_action, ae_get_delegate, ae_check_legitimacy, ae_mint). Sovereign signature and record verification need no key.",
           "isRequired": false,
           "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "AE_TOOLS",
+          "description": "Optional tool exposure mode. Set to readonly to omit ae_mint and expose only verification/query tools.",
+          "isRequired": false,
+          "isSecret": false,
           "format": "string"
         }
       ]

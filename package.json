@@ -1,6 +1,6 @@
 {
   "name": "agent-envelope-mcp",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "mcpName": "io.github.BlackBoxEngineering/agent-envelope-mcp",
   "description": "MCP adapter for AgentEnvelope: sovereign verification, hosted decisions, delegates, legitimacy, and mint receipts.",
   "type": "module",
@@ -13,12 +13,14 @@
   "files": [
     "bin",
     "src",
+    "tests",
     "server.json",
     "README.md",
     "LICENSE",
     "NOTICE"
   ],
   "scripts": {
+    "test": "node --test tests/*.test.js",
     "start": "node bin/agent-envelope-mcp.js",
     "start:http": "node bin/agent-envelope-mcp.js --http --port 8787"
   },

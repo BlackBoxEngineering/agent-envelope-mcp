@@ -18,9 +18,14 @@ import { AgentEnvelopeClient } from 'agent-envelope-sdk/client';
 import { verifyAction as verifyActionSovereign, verifyRecord as verifyRecordSovereign } from 'agent-envelope-sdk';
 
 const HOSTED_BASE_URL = process.env.AE_API_BASE_URL?.trim() || 'https://jemdjwteae.execute-api.us-east-1.amazonaws.com/v1';
-const SERVER_VERSION = '1.1.0';
+const SERVER_VERSION = '1.1.1';
 const NEEDS_KEY =
   'AE_API_KEY is not set. This is a hosted-governance tool; set the portal-issued API key to use it. Sovereign signature and record verification need no key.';
+const TOOLS_MODE = process.env.AE_TOOLS?.trim().toLowerCase() || 'all';
+const MINT_ENABLED = TOOLS_MODE !== 'readonly' && TOOLS_MODE !== 'read-only';
+const MAX_HOSTED_CLIENTS = 100;
+const HTTP_SESSION_IDLE_MS = Number.parseInt(process.env.AE_MCP_SESSION_IDLE_MS || '', 10) || 30 * 60 * 1000;
+const HTTP_SESSION_SWEEP_MS = Math.min(60 * 1000, Math.max(5 * 1000, Math.floor(HTTP_SESSION_IDLE_MS / 2)));
 
 const encoder = new TextEncoder();
 const MAX_SIGNED_MESSAGE_BYTES = 64 * 1024;
@@ -44,7 +49,17 @@ function getApiKey(extra) {
 function governanceClient(extra) {
   const apiKey = getApiKey(extra);
   if (!apiKey) return null;
-  if (!hostedClients.has(apiKey)) hostedClients.set(apiKey, new AgentEnvelopeClient({ apiKey }));
+  if (hostedClients.has(apiKey)) {
+    const client = hostedClients.get(apiKey);
+    hostedClients.delete(apiKey);
+    hostedClients.set(apiKey, client);
+    return client;
+  }
+  hostedClients.set(apiKey, new AgentEnvelopeClient({ apiKey }));
+  if (hostedClients.size > MAX_HOSTED_CLIENTS) {
+    const oldestKey = hostedClients.keys().next().value;
+    if (oldestKey) hostedClients.delete(oldestKey);
+  }
   return hostedClients.get(apiKey);
 }
 
@@ -146,18 +161,20 @@ async function readJsonBody(req) {
   return JSON.parse(text);
 }
 
-function decisionFromReport(report, input) {
+export function decisionFromReport(report, input) {
   const reportValid = Boolean(report?.valid);
-  const operationMatches = !input.operation || !report?.envelope?.operation || report.envelope.operation === input.operation;
-  const resourceMatches = !input.resource || !Array.isArray(report?.envelope?.resources) || resourceAllowed(report.envelope.resources, input.resource);
+  const hasOperation = typeof report?.envelope?.operation === 'string';
+  const hasResources = Array.isArray(report?.envelope?.resources);
+  const operationMatches = !input.operation || (hasOperation && report.envelope.operation === input.operation);
+  const resourceMatches = !input.resource || (hasResources && resourceAllowed(report.envelope.resources, input.resource));
   const valid = reportValid && operationMatches && resourceMatches;
   const reason = valid
     ? 'verified'
     : !reportValid
       ? (report?.reason || report?.legitimacyReason || 'verification_failed')
       : !operationMatches
-        ? 'operation_mismatch'
-        : 'resource_mismatch';
+        ? (hasOperation ? 'operation_mismatch' : 'operation_missing')
+        : (hasResources ? 'resource_mismatch' : 'resources_missing');
   return {
     type: 'agentenvelope.authorizationDecision',
     version: 1,
@@ -411,28 +428,30 @@ export function createServer() {
     },
   );
 
-  server.registerTool(
-    'ae_mint',
-    {
-      title: 'Verify mint request (hosted receipt)',
-      description:
-        'Verify a MintDelegate and signed MintRequest through hosted governance. Returns a mint receipt; it does not return private capability material. Requires a portal-issued API key. This is a governed action.',
-      annotations: governedHosted,
-      inputSchema: {
-        delegate: mintObjectSchema.describe('The signed MintDelegate'),
-        request: mintObjectSchema.describe('The bot-signed MintRequest'),
+  if (MINT_ENABLED) {
+    server.registerTool(
+      'ae_mint',
+      {
+        title: 'Verify mint request (hosted receipt)',
+        description:
+          'Verify a MintDelegate and signed MintRequest through hosted governance. Returns a mint receipt; it does not return private capability material. Requires a portal-issued API key. This is a governed action.',
+        annotations: governedHosted,
+        inputSchema: {
+          delegate: mintObjectSchema.describe('The signed MintDelegate'),
+          request: mintObjectSchema.describe('The bot-signed MintRequest'),
+        },
       },
-    },
-    async ({ delegate, request }, extra) => {
-      const client = governanceClient(extra);
-      if (!client) return fail(NEEDS_KEY);
-      try {
-        return hostedResult(await client.mint({ delegate, request }), 'mint failed');
-      } catch (err) {
-        return fail(err instanceof Error ? err.message : 'mint failed', errorBody(err));
-      }
-    },
-  );
+      async ({ delegate, request }, extra) => {
+        const client = governanceClient(extra);
+        if (!client) return fail(NEEDS_KEY);
+        try {
+          return hostedResult(await client.mint({ delegate, request }), 'mint failed');
+        } catch (err) {
+          return fail(err instanceof Error ? err.message : 'mint failed', errorBody(err));
+        }
+      },
+    );
+  }
 
   return server;
 }
@@ -447,9 +466,27 @@ export async function start() {
 /** Build the server and expose it over Streamable HTTP. */
 export async function startHttp({ port = 8787, host = '127.0.0.1', path = '/mcp' } = {}) {
   const transports = new Map();
+  const closeSession = (id, entry) => {
+    transports.delete(id);
+    try {
+      const closeResult = entry?.transport?.close?.();
+      if (closeResult && typeof closeResult.catch === 'function') closeResult.catch(() => {});
+    } catch {
+      // Session eviction should never crash the HTTP listener.
+    }
+  };
+  const sweepIdleSessions = () => {
+    const cutoff = Date.now() - HTTP_SESSION_IDLE_MS;
+    for (const [id, entry] of transports) {
+      if (entry.lastSeen <= cutoff) closeSession(id, entry);
+    }
+  };
+  const sweepTimer = setInterval(sweepIdleSessions, HTTP_SESSION_SWEEP_MS);
+  sweepTimer.unref?.();
 
   const httpServer = createHttpServer(async (req, res) => {
     try {
+      sweepIdleSessions();
       const url = new URL(req.url || '/', `http://${req.headers.host || `${host}:${port}`}`);
 
       if (url.pathname === '/health') {
@@ -468,7 +505,9 @@ export async function startHttp({ port = 8787, host = '127.0.0.1', path = '/mcp'
       const rawSessionId = req.headers['mcp-session-id'];
       const sessionId = Array.isArray(rawSessionId) ? rawSessionId[0] : rawSessionId;
       const body = req.method === 'POST' ? await readJsonBody(req) : undefined;
-      let transport = sessionId ? transports.get(sessionId) : undefined;
+      const entry = sessionId ? transports.get(sessionId) : undefined;
+      let transport = entry?.transport;
+      if (entry) entry.lastSeen = Date.now();
 
       if (!transport) {
         if (req.method !== 'POST' || !isInitializeRequest(body)) {
@@ -483,7 +522,7 @@ export async function startHttp({ port = 8787, host = '127.0.0.1', path = '/mcp'
         transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
           enableJsonResponse: true,
-          onsessioninitialized: (id) => transports.set(id, transport),
+          onsessioninitialized: (id) => transports.set(id, { transport, lastSeen: Date.now() }),
         });
 
         transport.onclose = () => {
@@ -504,6 +543,11 @@ export async function startHttp({ port = 8787, host = '127.0.0.1', path = '/mcp'
         });
       }
     }
+  });
+
+  httpServer.on('close', () => {
+    clearInterval(sweepTimer);
+    for (const [id, entry] of transports) closeSession(id, entry);
   });
 
   await new Promise((resolve, reject) => {

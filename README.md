@@ -41,6 +41,10 @@ No API key is needed to start the server or to use sovereign signature/record
 verification. Hosted-governance tools require `AE_API_KEY` or, in HTTP mode, an
 `Authorization: Bearer <portal-api-key>` header.
 
+For verification-only deployments, set `AE_TOOLS=readonly`. In that mode the
+server does not register `ae_mint`, so MCP clients can only call sovereign
+verification and hosted read/query tools.
+
 ## Tools
 
 | Tool | Mode | Credential | Notes |
@@ -52,7 +56,7 @@ verification. Hosted-governance tools require `AE_API_KEY` or, in HTTP mode, an
 | `ae_authorize_action` | Hosted governance | `AE_API_KEY` or bearer | Normalizes hosted verification into an `allowed`/`denied` decision |
 | `ae_get_delegate` | Hosted governance | `AE_API_KEY` or bearer | Fetches one active hosted delegate |
 | `ae_check_legitimacy` | Hosted governance | `AE_API_KEY` or bearer | Normalizes legitimacy state into a decision |
-| `ae_mint` | Hosted governance | `AE_API_KEY` or bearer | Governed mint request; returns receipt, not private material |
+| `ae_mint` | Hosted governance | `AE_API_KEY` or bearer | Governed mint request; returns receipt, not private material. Omitted when `AE_TOOLS=readonly` |
 
 Most tools return both readable MCP `content` and machine-readable
 `structuredContent`.
@@ -239,6 +243,8 @@ await startHttp({ port: 8787, host: "127.0.0.1", path: "/mcp" });
 |---|---|---|
 | `AE_API_KEY` | Hosted tools | Portal-issued API key for hosted governance |
 | `AE_API_BASE_URL` | Hosted tools | Optional override for the AgentEnvelope hosted API |
+| `AE_TOOLS` | Tool exposure | Set to `readonly` to omit `ae_mint` |
+| `AE_MCP_SESSION_IDLE_MS` | HTTP mode | Optional idle timeout for Streamable HTTP sessions; defaults to 30 minutes |
 | `PORT` | HTTP mode | Default HTTP port when `--port` is omitted |
 | `HOST` | HTTP mode | Default HTTP bind host when `--host` is omitted |
 | `MCP_PATH` | HTTP mode | Default MCP path when `--path` is omitted |
