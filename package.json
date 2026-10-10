@@ -1,6 +1,6 @@
 {
   "name": "agent-envelope-mcp",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "mcpName": "io.github.BlackBoxEngineering/agent-envelope-mcp",
   "description": "MCP adapter for AgentEnvelope: sovereign verification, hosted decisions, delegates, legitimacy, and mint receipts.",
   "type": "module",
@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "agent-envelope-sdk": "^1.4.5",
+    "agent-envelope-sdk": "^1.4.6",
     "zod": "^4.4.3"
   },
   "keywords": [

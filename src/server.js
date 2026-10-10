@@ -67,6 +67,25 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function unwrapProxyResponse(value) {
+  if (!isPlainObject(value) || !Number.isInteger(value.statusCode) || !('body' in value)) return value;
+  let body = value.body;
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      body = { message: body };
+    }
+  }
+  if (value.statusCode >= 400) {
+    const error = new Error(body?.message || body?.error || `AgentEnvelope API error ${value.statusCode}`);
+    error.status = value.statusCode;
+    error.body = body;
+    throw error;
+  }
+  return body;
+}
+
 function jsonByteLength(value) {
   try {
     return encoder.encode(JSON.stringify(value)).length;
@@ -107,10 +126,11 @@ function fail(message, details) {
 }
 
 function hostedResult(value, fallback) {
-  if (value && typeof value === 'object' && !Array.isArray(value) && 'error' in value) {
-    return fail(`${fallback}: ${String(value.error)}`, value);
+  const normalized = unwrapProxyResponse(value);
+  if (normalized && typeof normalized === 'object' && !Array.isArray(normalized) && 'error' in normalized) {
+    return fail(`${fallback}: ${String(normalized.error)}`, normalized);
   }
-  return ok(value);
+  return ok(normalized);
 }
 
 function errorBody(err) {
@@ -219,8 +239,18 @@ const publicActionRecordSchema = z.object({
   agentAddress: addressSchema,
   status: z.string().min(1).max(32),
   domain: z.object({
-    domainId: z.string().min(1).max(128),
+    domainInfo: z.object({
+      type: z.literal('agentenvelope.domainInfo'),
+      version: z.literal(1),
+      namespace: z.string().min(1).max(128),
+      domainId: z.string().min(1).max(128),
+      kind: z.string().min(1).max(128),
+    }).passthrough(),
+    canonicalDomainInfo: z.string().min(1).max(4096),
     domainHash: hashSchema,
+    domainAddress: addressSchema,
+    domainFingerprint: z.string().min(1).max(128),
+    createdAt: z.string().min(1).max(64),
   }).passthrough(),
   actionEnvelope: z.object({
     actionIndex: z.number().int().nonnegative(),
@@ -351,7 +381,7 @@ export function createServer() {
       const client = governanceClient(extra);
       if (!client) return fail(NEEDS_KEY);
       try {
-        const report = await client.verifyAction(input);
+        const report = unwrapProxyResponse(await client.verifyAction(input));
         return ok(decisionFromReport(report, input));
       } catch (err) {
         const body = errorBody(err);
@@ -448,6 +478,31 @@ export function createServer() {
           return hostedResult(await client.mint({ delegate, request }), 'mint failed');
         } catch (err) {
           return fail(err instanceof Error ? err.message : 'mint failed', errorBody(err));
+        }
+      },
+    );
+
+    server.registerTool(
+      'ae_register_delegated_action',
+      {
+        title: 'Register delegated action record',
+        description:
+          'Publish a verifier-safe public action record after a successful hosted mint. The hosted service confirms the delegate, signed request, mint nonce, record metadata, plan limits, and legitimacy before registration.',
+        annotations: governedHosted,
+        inputSchema: {
+          record: publicActionRecordSchema.describe('The public action record derived from the minted capability'),
+          request: mintObjectSchema.describe('The same signed MintRequest accepted by ae_mint'),
+          delegateId: delegateIdSchema.describe('The hosted delegate used for the mint'),
+        },
+      },
+      async ({ record, request, delegateId }, extra) => {
+        try {
+          return hostedResult(await hostedJson('/sovereign/agents/register-delegated', {
+            method: 'POST',
+            body: JSON.stringify({ record, request, delegateId }),
+          }, extra), 'delegated record registration failed');
+        } catch (err) {
+          return fail(err instanceof Error ? err.message : 'delegated record registration failed', errorBody(err));
         }
       },
     );

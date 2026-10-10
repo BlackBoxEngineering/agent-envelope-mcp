@@ -57,6 +57,7 @@ verification and hosted read/query tools.
 | `ae_get_delegate` | Hosted governance | `AE_API_KEY` or bearer | Fetches one active hosted delegate |
 | `ae_check_legitimacy` | Hosted governance | `AE_API_KEY` or bearer | Normalizes legitimacy state into a decision |
 | `ae_mint` | Hosted governance | `AE_API_KEY` or bearer | Governed mint request; returns receipt, not private material. Omitted when `AE_TOOLS=readonly` |
+| `ae_register_delegated_action` | Hosted governance | `AE_API_KEY` or bearer | Registers the public action record after an accepted mint. Omitted when `AE_TOOLS=readonly` |
 
 Most tools return both readable MCP `content` and machine-readable
 `structuredContent`.
@@ -252,7 +253,7 @@ await startHttp({ port: 8787, host: "127.0.0.1", path: "/mcp" });
 ## Security Notes
 
 - Verification-only tools are annotated as read-only.
-- `ae_mint` is annotated as a governed, non-idempotent hosted action.
+- `ae_mint` and `ae_register_delegated_action` are annotated as governed, non-idempotent hosted actions.
 - API keys meter service access; signatures prove authority.
 - The runtime keeps secrets. The model asks for authority; AgentEnvelope returns
   the decision.
