@@ -34,6 +34,16 @@ test('AE_TOOLS=readonly omits mint tool', () => {
   const names = spawnedToolNames({ ...process.env, AE_TOOLS: 'readonly' });
   assert.equal(names.includes('ae_mint'), false);
   assert.equal(names.includes('ae_register_delegated_action'), false);
+  assert.ok(names.includes('ae_verify_action'));
+  assert.ok(names.includes('ae_check_legitimacy'));
+});
+
+test('AE_TOOLS=sovereign exposes only offline sovereign verification', () => {
+  const names = spawnedToolNames({ ...process.env, AE_TOOLS: 'sovereign' });
+  assert.deepEqual(names, [
+    'ae_verify_sovereign',
+    'ae_verify_sovereign_record',
+  ]);
 });
 
 test('delegated action registration uses the hosted registration route', async () => {

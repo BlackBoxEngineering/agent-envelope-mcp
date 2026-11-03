@@ -18,11 +18,12 @@ import { AgentEnvelopeClient } from 'agent-envelope-sdk/client';
 import { verifyAction as verifyActionSovereign, verifyRecord as verifyRecordSovereign } from 'agent-envelope-sdk';
 
 const HOSTED_BASE_URL = process.env.AE_API_BASE_URL?.trim() || 'https://jemdjwteae.execute-api.us-east-1.amazonaws.com/v1';
-const SERVER_VERSION = '1.1.1';
+const SERVER_VERSION = '1.2.0';
 const NEEDS_KEY =
   'AE_API_KEY is not set. This is a hosted-governance tool; set the portal-issued API key to use it. Sovereign signature and record verification need no key.';
 const TOOLS_MODE = process.env.AE_TOOLS?.trim().toLowerCase() || 'all';
-const MINT_ENABLED = TOOLS_MODE !== 'readonly' && TOOLS_MODE !== 'read-only';
+const SOVEREIGN_ONLY = TOOLS_MODE === 'sovereign';
+const MINT_ENABLED = !SOVEREIGN_ONLY && TOOLS_MODE !== 'readonly' && TOOLS_MODE !== 'read-only';
 const MAX_HOSTED_CLIENTS = 100;
 const HTTP_SESSION_IDLE_MS = Number.parseInt(process.env.AE_MCP_SESSION_IDLE_MS || '', 10) || 30 * 60 * 1000;
 const HTTP_SESSION_SWEEP_MS = Math.min(60 * 1000, Math.max(5 * 1000, Math.floor(HTTP_SESSION_IDLE_MS / 2)));
@@ -314,7 +315,8 @@ export function createServer() {
     },
   );
 
-  server.registerTool(
+  if (!SOVEREIGN_ONLY) {
+    server.registerTool(
     'ae_get_agent',
     {
       title: 'Look up registered agent',
@@ -458,8 +460,8 @@ export function createServer() {
     },
   );
 
-  if (MINT_ENABLED) {
-    server.registerTool(
+    if (MINT_ENABLED) {
+      server.registerTool(
       'ae_mint',
       {
         title: 'Verify mint request (hosted receipt)',
@@ -482,7 +484,7 @@ export function createServer() {
       },
     );
 
-    server.registerTool(
+      server.registerTool(
       'ae_register_delegated_action',
       {
         title: 'Register delegated action record',
@@ -505,7 +507,8 @@ export function createServer() {
           return fail(err instanceof Error ? err.message : 'delegated record registration failed', errorBody(err));
         }
       },
-    );
+      );
+    }
   }
 
   return server;

@@ -11,7 +11,23 @@ LangGraph, CrewAI, or a custom runtime.
 Prompts can request actions; AgentEnvelope decides whether the actor has
 authority to perform them.
 
-## Choose Your Mode
+## Choose Your Authority Mode
+
+The hosted AgentEnvelope portal is optional. The MCP server can run entirely
+offline with only the public SDK verification tools, or it can add hosted
+governance when a deployment chooses to use the portal and its API.
+
+| `AE_TOOLS` | Exposed tools | Portal or network required |
+|---|---|---|
+| `sovereign` | `ae_verify_sovereign` and `ae_verify_sovereign_record` only | No |
+| `readonly` | Sovereign tools plus hosted lookup, verification, authorization, delegate, and legitimacy tools | Only when a hosted tool is called |
+| `all` or unset | Every tool, including hosted mint and delegated record registration | Only when a hosted tool is called |
+
+Use `AE_TOOLS=sovereign` when the MCP client must have no hosted tool surface.
+No AgentEnvelope account, portal API key, or network request is involved in
+that mode.
+
+## Choose Your Transport
 
 Local stdio:
 
@@ -37,13 +53,10 @@ Health check:
 http://127.0.0.1:8787/health
 ```
 
-No API key is needed to start the server or to use sovereign signature/record
+No API key is needed to start the server or use sovereign signature/record
 verification. Hosted-governance tools require `AE_API_KEY` or, in HTTP mode, an
-`Authorization: Bearer <portal-api-key>` header.
-
-For verification-only deployments, set `AE_TOOLS=readonly`. In that mode the
-server does not register `ae_mint`, so MCP clients can only call sovereign
-verification and hosted read/query tools.
+`Authorization: Bearer <portal-api-key>` header. `AE_TOOLS=readonly` removes
+hosted mint and registration while retaining hosted read/query tools.
 
 ## Tools
 
@@ -51,20 +64,33 @@ verification and hosted read/query tools.
 |---|---|---|---|
 | `ae_verify_sovereign` | Sovereign signature check | none | Offline signature-only check |
 | `ae_verify_sovereign_record` | Sovereign public-record check | none | Offline record, signature, index, and time-decay check |
-| `ae_get_agent` | Hosted governance | `AE_API_KEY` or bearer | Fetches hosted public agent record |
-| `ae_verify_action` | Hosted governance | `AE_API_KEY` or bearer | Verifies against hosted public record |
-| `ae_authorize_action` | Hosted governance | `AE_API_KEY` or bearer | Normalizes hosted verification into an `allowed`/`denied` decision |
-| `ae_get_delegate` | Hosted governance | `AE_API_KEY` or bearer | Fetches one active hosted delegate |
-| `ae_check_legitimacy` | Hosted governance | `AE_API_KEY` or bearer | Normalizes legitimacy state into a decision |
-| `ae_mint` | Hosted governance | `AE_API_KEY` or bearer | Governed mint request; returns receipt, not private material. Omitted when `AE_TOOLS=readonly` |
-| `ae_register_delegated_action` | Hosted governance | `AE_API_KEY` or bearer | Registers the public action record after an accepted mint. Omitted when `AE_TOOLS=readonly` |
+| `ae_get_agent` | Hosted governance | `AE_API_KEY` or bearer | Fetches hosted public agent record. Omitted when `AE_TOOLS=sovereign` |
+| `ae_verify_action` | Hosted governance | `AE_API_KEY` or bearer | Verifies against hosted public record. Omitted when `AE_TOOLS=sovereign` |
+| `ae_authorize_action` | Hosted governance | `AE_API_KEY` or bearer | Normalizes hosted verification into an `allowed`/`denied` decision. Omitted when `AE_TOOLS=sovereign` |
+| `ae_get_delegate` | Hosted governance | `AE_API_KEY` or bearer | Fetches one active hosted delegate. Omitted when `AE_TOOLS=sovereign` |
+| `ae_check_legitimacy` | Hosted governance | `AE_API_KEY` or bearer | Normalizes legitimacy state into a decision. Omitted when `AE_TOOLS=sovereign` |
+| `ae_mint` | Hosted governance | `AE_API_KEY` or bearer | Governed mint request; returns receipt, not private material. Available only when `AE_TOOLS=all` or unset |
+| `ae_register_delegated_action` | Hosted governance | `AE_API_KEY` or bearer | Registers the public action record after an accepted mint. Available only when `AE_TOOLS=all` or unset |
 
 Most tools return both readable MCP `content` and machine-readable
 `structuredContent`.
 
 ## Runtime Rule
 
-Call AgentEnvelope before the real action. Execute only if `allowed === true`.
+Check AgentEnvelope before the real action. In sovereign mode, execute only
+when the offline record result has `valid === true`:
+
+```js
+const result = await verifySovereignRecord(input);
+
+if (result.valid !== true) {
+  throw new Error(result.reason || "AgentEnvelope denied the action");
+}
+
+await executeRealTool(input);
+```
+
+With optional hosted governance, execute only if `allowed === true`:
 
 ```js
 const decision = await authorizeAction(input);
@@ -80,6 +106,24 @@ Do not pass `AE_MINT_MATERIAL`, vault roots, seeds, or private domain material t
 the model or MCP client. Keep those in the bot runtime secret store.
 
 ## Local MCP Config
+
+Sovereign-only, with no portal or API key:
+
+```jsonc
+{
+  "mcpServers": {
+    "agent-envelope": {
+      "command": "npx",
+      "args": ["-y", "agent-envelope-mcp"],
+      "env": {
+        "AE_TOOLS": "sovereign"
+      }
+    }
+  }
+}
+```
+
+Optional hosted governance:
 
 ```jsonc
 {
@@ -244,7 +288,7 @@ await startHttp({ port: 8787, host: "127.0.0.1", path: "/mcp" });
 |---|---|---|
 | `AE_API_KEY` | Hosted tools | Portal-issued API key for hosted governance |
 | `AE_API_BASE_URL` | Hosted tools | Optional override for the AgentEnvelope hosted API |
-| `AE_TOOLS` | Tool exposure | Set to `readonly` to omit `ae_mint` |
+| `AE_TOOLS` | Tool exposure | `sovereign` exposes only offline tools; `readonly` adds hosted read/query tools; `all` or unset also enables hosted mint and registration |
 | `AE_MCP_SESSION_IDLE_MS` | HTTP mode | Optional idle timeout for Streamable HTTP sessions; defaults to 30 minutes |
 | `PORT` | HTTP mode | Default HTTP port when `--port` is omitted |
 | `HOST` | HTTP mode | Default HTTP bind host when `--host` is omitted |
